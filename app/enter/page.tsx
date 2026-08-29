@@ -3,6 +3,7 @@ import LoginForm from "@/components/admin/LoginForm";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import { isAuthenticated } from "@/lib/auth";
 import { getCourses, getEge, getLeads, getMaterials, getNews, getReviews, getSettings } from "@/lib/store";
+import { getAssignments } from "@/lib/assignments";
 
 // Категорически запрещаем индексацию скрытого раздела.
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export default async function EnterPage() {
     return <LoginForm />;
   }
 
-  const [settings, news, courses, ege, reviews, materials, leads] = await Promise.all([
+  const [settings, news, courses, ege, reviews, materials, leads, assignments] = await Promise.all([
     getSettings(),
     getNews(),
     getCourses(),
@@ -25,6 +26,7 @@ export default async function EnterPage() {
     getReviews(),
     getMaterials(),
     getLeads(),
+    getAssignments(),
   ]);
 
   return (
@@ -36,6 +38,7 @@ export default async function EnterPage() {
       initialReviews={reviews}
       initialMaterials={materials}
       initialLeads={leads}
+      initialAssignments={assignments}
     />
   );
 }

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUploader from "@/components/admin/ImageUploader";
+import AssignmentManager from "@/components/admin/AssignmentManager";
+import type { AssignmentStore } from "@/lib/assignments";
 import { formatDateTime } from "@/lib/format";
 import type {
   Course,
@@ -16,11 +18,12 @@ import type {
   Settings,
 } from "@/lib/types";
 
-type Tab = "settings" | "leads" | Section;
+type Tab = "settings" | "leads" | "assignments" | Section;
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "settings", label: "Настройки" },
   { key: "leads", label: "Заявки" },
+  { key: "assignments", label: "Выдача заданий" },
   { key: "news", label: "Блог / новости" },
   { key: "materials", label: "Материалы" },
   { key: "courses", label: "Курсы" },
@@ -62,6 +65,7 @@ export default function AdminDashboard({
   initialReviews,
   initialMaterials,
   initialLeads,
+  initialAssignments,
 }: {
   initialSettings: Settings;
   initialNews: NewsItem[];
@@ -70,6 +74,7 @@ export default function AdminDashboard({
   initialReviews: Review[];
   initialMaterials: MaterialItem[];
   initialLeads: Lead[];
+  initialAssignments: AssignmentStore;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("settings");
@@ -110,6 +115,7 @@ export default function AdminDashboard({
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
         {tab === "settings" && <SettingsEditor initial={initialSettings} />}
         {tab === "leads" && <LeadsEditor initial={initialLeads} />}
+        {tab === "assignments" && <AssignmentManager initial={initialAssignments} />}
         {tab === "news" && <NewsEditor initial={initialNews} />}
         {tab === "materials" && <MaterialsEditor initial={initialMaterials} />}
         {tab === "courses" && <CoursesEditor initial={initialCourses} />}
