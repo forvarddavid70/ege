@@ -3,6 +3,8 @@ import path from "path";
 
 export type AssignmentTask = {
   id: string;
+  categoryId?: string;
+  categoryName?: string;
   title: string;
   statement: string;
   options: string[];
@@ -46,6 +48,8 @@ export type AssignmentProject = {
   id: string;
   slug: string;
   title: string;
+  rootFolderId?: string;
+  categories?: Array<{ id: string; name: string }>;
   folderIds: string[];
   tasks: AssignmentTask[];
   status: "draft" | "published" | "submitted" | "reviewed";
