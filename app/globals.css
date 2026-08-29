@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Основной текст — Inter, заголовки — Manrope (подключаются в layout.tsx).
+     Обе гарнитуры содержат кириллицу; при недоступности сети — аккуратный
+     системный фолбэк. */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Manrope", "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-ink-950 text-ink-100 antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Заголовки — крупная «дисплейная» гарнитура с плотным трекингом. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Тёмный фон для hero: насыщенное фиолетово-фуксиевое свечение поверх тёмного. */
+.hero-gradient {
+  position: relative;
+  background:
+    radial-gradient(900px 520px at 12% -10%, rgba(124, 58, 237, 0.32), transparent 60%),
+    radial-gradient(820px 520px at 88% 0%, rgba(217, 70, 239, 0.20), transparent 60%),
+    linear-gradient(180deg, #0d0d14 0%, #08080c 100%);
+}
+
+/* Тонкая линия-разделитель между тёмными секциями — с фиолетовым акцентом. */
+.section-divider {
+  background-image: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+  height: 1px;
+}
+
+/* Карточки: тёмная подложка с лёгким градиентом и фиолетовой рамкой при наведении. */
+.card {
+  @apply rounded-2xl border border-ink-700 bg-ink-900/40 p-6 transition;
+}
+.card:hover {
+  border-color: rgba(124, 58, 237, 0.55);
+  box-shadow: 0 14px 44px -22px rgba(124, 58, 237, 0.6);
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ink-950;
+}
+
+/* Основная кнопка — фирменный фиолетово-фуксиевый градиент со свечением. */
+.btn-primary {
+  @apply btn bg-brand-gradient text-white shadow-glow focus:ring-brand-500;
+}
+.btn-primary:hover {
+  filter: brightness(1.08) saturate(1.05);
+}
+
+.btn-tg {
+  @apply btn bg-brand-gradient text-white shadow-glow focus:ring-brand-400;
+}
+.btn-tg:hover {
+  filter: brightness(1.08) saturate(1.05);
+}
+
+.btn-ghost {
+  @apply btn border border-ink-600 bg-transparent text-ink-100 hover:border-brand-500 hover:bg-brand-500/10 focus:ring-brand-500;
+}
+
+/* Градиентное кольцо вокруг аватара/изображений — фирменная рамка. */
+.avatar-ring {
+  @apply inline-block bg-brand-gradient shadow-glow-sm;
+}
+
+.section {
+  @apply mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:py-24;
+}
+
+.section-title {
+  @apply text-2xl font-bold tracking-tight text-white sm:text-3xl;
+}
+
+.eyebrow {
+  @apply text-xs font-semibold uppercase tracking-[0.2em] text-brand-400;
+}
+
+.chip {
+  @apply inline-flex items-center rounded-full border border-brand-500/40 bg-brand-500/15 px-3 py-1 text-xs font-medium text-brand-200;
+}
+
+/* Градиентный текст — фиолетовый → фуксия. Используется для акцентных
+   заголовков, крупных цифр и бренда. */
+.text-gradient {
+  background-image: linear-gradient(90deg, #a78bfa 0%, #d946ef 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Простые элементы форм для админки (тёмная тема) */
+.input {
+  @apply w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-ink-100 shadow-sm placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
+}
+
+.label {
+  @apply mb-1 block text-sm font-medium text-ink-200;
+}
+
+/* ─────────────── Плавное появление при прокрутке (scroll reveal) ─────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Едва заметная реакция карточек на наведение — только смена цвета рамки,
+   без подпрыгиваний и свечений. */
+.card {
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+/* ─────────────── Скелетоны-заглушки для состояния загрузки ─────────────── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: theme("colors.ink.700");
+  border-radius: 0.5rem;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(185, 185, 198, 0.10) 45%,
+    rgba(228, 228, 236, 0.14) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Уважаем системную настройку «меньше движения». */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .skeleton::after {
+    animation: none;
+  }
+}
