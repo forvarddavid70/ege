@@ -2,14 +2,10 @@
 
 import { useRef, useState } from "react";
 
-/**
- * Кнопка загрузки PNG-файла в админке. Отправляет файл на `/api/admin/upload`
- * и возвращает публичный путь через колбэк `onUploaded`. Показывает состояние
- * загрузки и понятную ошибку. Никаких гиперссылок — только выбор файла.
- */
+/** Загружает PNG, JPEG или WebP в public/uploads и возвращает публичный URL. */
 export default function ImageUploader({
   onUploaded,
-  label = "Загрузить PNG",
+  label = "Загрузить изображение",
 }: {
   onUploaded: (url: string) => void;
   label?: string;
@@ -20,16 +16,14 @@ export default function ImageUploader({
 
   async function handleFile(file: File) {
     setError(null);
-
-    if (file.type !== "image/png") {
-      setError("Можно загружать только PNG-файлы.");
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setError("Поддерживаются PNG, JPEG и WebP.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       setError("Файл слишком большой — максимум 5 МБ.");
       return;
     }
-
     setBusy(true);
     try {
       const data = new FormData();
@@ -49,27 +43,9 @@ export default function ImageUploader({
     }
   }
 
-  return (
-    <div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-        className="btn-ghost disabled:opacity-60"
-      >
-        {busy ? "Загрузка…" : label}
-      </button>
-      {error && <p className="mt-2 text-sm text-rose-400">{error}</p>}
-    </div>
-  );
+  return <div>
+    <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) handleFile(file); }} />
+    <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="btn-ghost disabled:opacity-60">{busy ? "Загрузка…" : label}</button>
+    {error && <p className="mt-2 text-sm text-rose-400">{error}</p>}
+  </div>;
 }

@@ -7,6 +7,7 @@ export type AssignmentTask = {
   categoryName?: string;
   title: string;
   statement: string;
+  imageUrl?: string;
   options: string[];
   allowExpandedAnswer: boolean;
   allowDrawing: boolean;
