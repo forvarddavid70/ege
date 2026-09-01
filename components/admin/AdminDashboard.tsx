@@ -66,6 +66,8 @@ export default function AdminDashboard({
   initialMaterials,
   initialLeads,
   initialAssignments,
+  initialAssignmentReviewId,
+  initialTab,
 }: {
   initialSettings: Settings;
   initialNews: NewsItem[];
@@ -75,9 +77,11 @@ export default function AdminDashboard({
   initialMaterials: MaterialItem[];
   initialLeads: Lead[];
   initialAssignments: AssignmentStore;
+  initialAssignmentReviewId?: string;
+  initialTab?: Tab;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("settings");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "settings");
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -115,7 +119,7 @@ export default function AdminDashboard({
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
         {tab === "settings" && <SettingsEditor initial={initialSettings} />}
         {tab === "leads" && <LeadsEditor initial={initialLeads} />}
-        {tab === "assignments" && <AssignmentManager initial={initialAssignments} />}
+        {tab === "assignments" && <AssignmentManager initial={initialAssignments} initialReviewId={initialAssignmentReviewId} />}
         {tab === "news" && <NewsEditor initial={initialNews} />}
         {tab === "materials" && <MaterialsEditor initial={initialMaterials} />}
         {tab === "courses" && <CoursesEditor initial={initialCourses} />}
