@@ -24,14 +24,19 @@ export async function POST(request: Request, { params }: { params: { slug: strin
     if (token && chatId) {
       const rawSite = process.env.NEXT_PUBLIC_SITE_URL || "";
       const site = rawSite.endsWith("/") ? rawSite.slice(0, -1) : rawSite;
+      const answered = submission.answers.filter((answer) => answer.selectedOption || answer.text?.trim() || answer.drawing).length;
       const text = [
         "📝 Ученик завершил тест",
         `Проект: ${project.title}`,
         `Ученик: ${submission.studentName}`,
         submission.studentContact ? `Контакт: ${submission.studentContact}` : "",
-        site ? `Проверить: ${site}/enter` : "Откройте раздел «Выдача заданий» в админке.",
+        `Заполнено заданий: ${answered} из ${project.tasks.length}`,
+        site
+          ? `Открыть пройденный тест и проверить: ${site}/enter?review=${project.id}`
+          : `Откройте в админке: /enter?review=${project.id}`,
+        site ? `Вариант ученика: ${site}/assignment/${project.slug}` : "",
       ].filter(Boolean).join("\n");
-      await fetch("https:" + "//api.telegram.org/bot" + token + "/sendMessage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text }) }).catch(() => null);
+      await fetch("https:" + "//api.telegram.org/bot" + token + "/sendMessage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }) }).catch(() => null);
     }
     return NextResponse.json({ ok: true, project: updated });
   } catch {

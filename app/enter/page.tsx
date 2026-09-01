@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function EnterPage() {
+export default async function EnterPage({ searchParams }: { searchParams?: { review?: string; tab?: string } }) {
   if (!isAuthenticated()) {
     return <LoginForm />;
   }
@@ -29,6 +29,13 @@ export default async function EnterPage() {
     getAssignments(),
   ]);
 
+  // Ссылка из Telegram: /enter?review=<id проекта> сразу открывает проверку пройденного теста.
+  const requestedReview = searchParams?.review;
+  const reviewId = requestedReview && assignments.projects.some((p) => p.id === requestedReview && p.submission)
+    ? requestedReview
+    : undefined;
+  const initialTab = reviewId || searchParams?.tab === "assignments" ? "assignments" : undefined;
+
   return (
     <AdminDashboard
       initialSettings={settings}
@@ -39,6 +46,8 @@ export default async function EnterPage() {
       initialMaterials={materials}
       initialLeads={leads}
       initialAssignments={assignments}
+      initialAssignmentReviewId={reviewId}
+      initialTab={initialTab}
     />
   );
 }

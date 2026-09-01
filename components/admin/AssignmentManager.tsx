@@ -1,24 +1,39 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DrawingCanvas from "@/components/assignments/DrawingCanvas";
 import ImageUploader from "@/components/admin/ImageUploader";
 import type { AssignmentFolder, AssignmentProject, AssignmentStore, AssignmentTask, TaskReview } from "@/lib/assignments";
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 const makeSlug = () => `work-${Math.random().toString(36).slice(2, 10)}`;
+const PAGE_SIZE = 10;
 const blankTask = (): AssignmentTask => ({ id: uid(), title: "Новое задание", statement: "", imageUrl: "", options: [""], allowExpandedAnswer: true, allowDrawing: true, needsAnalysis: false, analysisNote: "", maxScore: 1 });
 
-export default function AssignmentManager({ initial }: { initial: AssignmentStore }) {
+function formatMoment(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function maxScoreOf(project: AssignmentProject) {
+  return project.tasks.reduce((sum, task) => sum + (Number(task.maxScore) || 0), 0);
+}
+
+export default function AssignmentManager({ initial, initialReviewId }: { initial: AssignmentStore; initialReviewId?: string }) {
   const [data, setData] = useState(initial);
   const [selected, setSelected] = useState<string | null>(initial.folders[0]?.id ?? null);
-  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(initialReviewId ?? null);
   const [saved, setSaved] = useState(false);
   const folder = data.folders.find((x) => x.id === selected);
   const root = folder?.parentId ? data.folders.find((x) => x.id === folder.parentId) : folder;
   const categories = root ? data.folders.filter((x) => x.parentId === root.id) : [];
   const linkedProject = root ? data.projects.find((p) => p.rootFolderId === root.id || (!p.rootFolderId && p.folderIds[0] === root.id)) : undefined;
   const reviewProject = data.projects.find((x) => x.id === reviewId);
+  const submitted = useMemo(
+    () => data.projects.filter((p) => p.submission).sort((a, b) => (a.submission!.submittedAt < b.submission!.submittedAt ? 1 : -1)),
+    [data.projects],
+  );
 
   async function persist(next = data) {
     const res = await fetch("/api/admin/assignments", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
@@ -105,10 +120,54 @@ export default function AssignmentManager({ initial }: { initial: AssignmentStor
           {linkedProject && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-700/50 bg-emerald-900/20 p-4"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-400">Постоянная ссылка проекта</p><code className="mt-1 block break-all text-sm text-emerald-100">{`/assignment/${linkedProject.slug}`}</code></div><button onClick={() => navigator.clipboard.writeText(`${location.origin}/assignment/${linkedProject.slug}`)} className="btn-ghost">Копировать</button></div>}
           {!folder?.parentId ? <ProjectOverview categories={categories} onSelect={setSelected} /> : <CategoryEditor folder={folder} onChange={(next) => mutateFolder(folder.id, () => next)} />}
         </div> : <div className="rounded-2xl border border-dashed border-ink-700 p-10 text-center text-ink-400">Выберите или создайте проект.</div>}
+        <SubmittedTests projects={submitted} onReview={setReviewId} onRemove={removeProject} />
         <Projects projects={data.projects} onReview={setReviewId} onRemove={removeProject} />
       </div>
     </div>
   </section>;
+}
+
+function SubmittedTests({ projects, onReview, onRemove }: { projects: AssignmentProject[]; onReview: (id: string) => void; onRemove: (id: string) => void }) {
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<"all" | "submitted" | "reviewed">("all");
+  const filtered = useMemo(() => projects.filter((p) => filter === "all" ? true : filter === "reviewed" ? !!p.review : !p.review), [projects, filter]);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => { if (page > pages) setPage(1); }, [page, pages]);
+  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const waiting = projects.filter((p) => !p.review).length;
+
+  return <div className="rounded-2xl border border-ink-700 bg-ink-800/70 p-5">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h3 className="font-bold text-white">Пройденные тесты</h3><p className="mt-1 text-xs text-ink-400">Всего {projects.length} · ждут проверки {waiting} · по {PAGE_SIZE} на странице</p></div>
+      <div className="flex gap-1 rounded-lg border border-ink-700 p-1">
+        {([["all", "Все"], ["submitted", "На проверке"], ["reviewed", "Проверено"]] as const).map(([key, label]) => <button key={key} onClick={() => { setFilter(key); setPage(1); }} className={`rounded-md px-3 py-2 text-xs font-semibold transition ${filter === key ? "bg-brand-500/20 text-brand-200" : "text-ink-400 hover:text-ink-100"}`}>{label}</button>)}
+      </div>
+    </div>
+
+    <div className="mt-4 space-y-3">
+      {visible.map((project) => <article key={project.id} className={`rounded-xl border p-4 ${project.review ? "border-ink-700" : "border-amber-600/50 bg-amber-900/10"}`}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2"><b className="text-white">{project.title}</b><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${project.review ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>{project.review ? `проверено · ${project.review.total} из ${maxScoreOf(project)}` : "нужно проверить"}</span></div>
+            <p className="mt-1 text-sm text-ink-200">Ученик: {project.submission!.studentName}{project.submission!.studentContact ? ` · ${project.submission!.studentContact}` : ""}</p>
+            <p className="mt-1 text-xs text-ink-400">Пройден: {formatMoment(project.submission!.submittedAt)}{project.review ? ` · проверен: ${formatMoment(project.review.finishedAt)}` : ""} · {project.tasks.length} заданий</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => onReview(project.id)} className="btn-primary">{project.review ? "Открыть проверку" : "Проверить"}</button>
+            {project.review && <a target="_blank" href={`/assignment/${project.slug}/report`} className="btn-ghost">Отчёт и PDF</a>}
+            <button onClick={() => onRemove(project.id)} className="btn-ghost border-rose-500/50 text-rose-300">Удалить</button>
+          </div>
+        </div>
+      </article>)}
+      {!filtered.length && <p className="rounded-xl border border-dashed border-ink-600 p-8 text-center text-sm text-ink-400">Пройденных тестов пока нет.</p>}
+    </div>
+
+    {filtered.length > PAGE_SIZE && <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-700 pt-4">
+      <button onClick={() => setPage((x) => Math.max(1, x - 1))} disabled={page === 1} className="btn-ghost disabled:opacity-40">← Назад</button>
+      <p className="text-sm text-ink-300">Страница <b className="text-white">{page}</b> из {pages}</p>
+      <button onClick={() => setPage((x) => Math.min(pages, x + 1))} disabled={page === pages} className="btn-ghost disabled:opacity-40">Вперёд →</button>
+    </div>}
+  </div>;
 }
 
 function ProjectTree({ project, categories, selected, onSelect, onAddCategory, onRemove }: { project: AssignmentFolder; categories: AssignmentFolder[]; selected: string | null; onSelect: (id: string) => void; onAddCategory: (id: string) => void; onRemove: (id: string) => void }) {
@@ -131,14 +190,25 @@ function TaskEditor({ task, index, onChange, onRemove }: { task: AssignmentTask;
 function Check({ text, checked, onChange }: { text: string; checked: boolean; onChange: (x: boolean) => void }) { return <label className="flex items-center gap-2 rounded-lg border border-ink-700 p-3 text-sm text-ink-200"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />{text}</label>; }
 
 function Projects({ projects, onReview, onRemove }: { projects: AssignmentProject[]; onReview: (id: string) => void; onRemove: (id: string) => void }) {
-  return <div className="rounded-2xl border border-ink-700 bg-ink-800/70 p-5"><h3 className="font-bold text-white">Ссылки и работы</h3><div className="mt-4 space-y-3">{projects.map((p) => <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-700 p-4"><div><b className="text-white">{p.title}</b><p className="mt-1 text-xs text-ink-400">{p.categories?.length ?? p.folderIds.length} подтипов · {p.status === "published" ? "ожидает ученика" : p.status === "submitted" ? "нужно проверить" : p.status === "reviewed" ? `проверено · ${p.review?.total} баллов` : "черновик"}</p></div><div className="flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(`${location.origin}/assignment/${p.slug}`)} className="btn-ghost">Постоянная ссылка</button>{p.submission && <button onClick={() => onReview(p.id)} className="btn-primary">{p.review ? "Открыть статистику" : "Проверить"}</button>}<button onClick={() => onRemove(p.id)} className="btn-ghost border-rose-500/50 text-rose-300">Удалить</button></div></div>)}{!projects.length && <p className="text-sm text-ink-400">Постоянных ссылок пока нет.</p>}</div></div>;
+  const [page, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(projects.length / PAGE_SIZE));
+  useEffect(() => { if (page > pages) setPage(1); }, [page, pages]);
+  const visible = projects.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  return <div className="rounded-2xl border border-ink-700 bg-ink-800/70 p-5"><h3 className="font-bold text-white">Ссылки проектов</h3><div className="mt-4 space-y-3">{visible.map((p) => <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-700 p-4"><div><b className="text-white">{p.title}</b><p className="mt-1 text-xs text-ink-400">{p.categories?.length ?? p.folderIds.length} подтипов · {p.status === "published" ? "ожидает ученика" : p.status === "submitted" ? "нужно проверить" : p.status === "reviewed" ? `проверено · ${p.review?.total} баллов` : "черновик"}</p></div><div className="flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(`${location.origin}/assignment/${p.slug}`)} className="btn-ghost">Постоянная ссылка</button>{p.submission && <button onClick={() => onReview(p.id)} className="btn-primary">{p.review ? "Открыть статистику" : "Проверить"}</button>}<button onClick={() => onRemove(p.id)} className="btn-ghost border-rose-500/50 text-rose-300">Удалить</button></div></div>)}{!projects.length && <p className="text-sm text-ink-400">Постоянных ссылок пока нет.</p>}</div>{projects.length > PAGE_SIZE && <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-700 pt-4"><button onClick={() => setPage((x) => Math.max(1, x - 1))} disabled={page === 1} className="btn-ghost disabled:opacity-40">← Назад</button><p className="text-sm text-ink-300">Страница <b className="text-white">{page}</b> из {pages}</p><button onClick={() => setPage((x) => Math.min(pages, x + 1))} disabled={page === pages} className="btn-ghost disabled:opacity-40">Вперёд →</button></div>}</div>;
 }
 
 function ReviewPanel({ project, onBack, onDone }: { project: AssignmentProject; onBack: () => void; onDone: (p: AssignmentProject) => void }) {
   const initial = project.review?.items ?? project.tasks.map((t) => ({ taskId: t.id, score: 0, comment: "", annotation: "" }));
   const [items, setItems] = useState<TaskReview[]>(initial);
+  const [finished, setFinished] = useState(!!project.review);
   const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.score || 0), 0), [items]);
   const patch = (id: string, value: Partial<TaskReview>) => setItems((xs) => xs.map((x) => x.taskId === id ? { ...x, ...value } : x));
-  async function finish() { const res = await fetch(`/api/admin/assignments/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ review: { items, total, finishedAt: "" } }) }); const json = await res.json(); if (res.ok) onDone(json.project); }
-  return <section><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><button onClick={onBack} className="btn-ghost">← К проектам</button><div className="text-right"><b className="text-2xl text-white">{total} баллов</b><p className="text-xs text-ink-400">сумма обновляется автоматически</p></div></div><div className="grid gap-5 xl:grid-cols-[1fr_260px]"><div className="space-y-5">{project.tasks.map((task, i) => { const answer = project.submission!.answers.find((x) => x.taskId === task.id); const review = items.find((x) => x.taskId === task.id)!; return <article key={task.id} className="rounded-2xl border border-ink-700 bg-ink-800/70 p-5"><div className="flex justify-between gap-4"><div><span className="text-xs font-bold text-brand-300">{task.categoryName || "Подтип"} · задание {i + 1}</span><h3 className="font-bold text-white">{task.title}</h3></div><label className="text-right text-xs text-ink-400">Баллы<input type="number" min="0" max={task.maxScore} value={review.score} onChange={(e) => patch(task.id, { score: Math.min(task.maxScore, Number(e.target.value)) })} className="input mt-1 w-24 text-center text-lg font-bold" /></label></div><p className="mt-4 whitespace-pre-wrap text-ink-200">{task.statement}</p>{task.imageUrl && <img src={task.imageUrl} alt={`Иллюстрация к заданию ${i + 1}`} className="mt-4 max-h-[520px] w-full rounded-lg border border-ink-600 bg-white object-contain" />}{task.needsAnalysis && <p className="mt-3 rounded-lg border border-amber-700/40 bg-amber-900/20 p-3 text-sm text-amber-200">Скрытый анализ: {task.analysisNote || "требуется дополнительная проверка"}</p>}<div className="mt-4 rounded-lg bg-white p-4 text-slate-900">{answer?.selectedOption && <p><b>Выбор:</b> {answer.selectedOption}</p>}{answer?.text && <p className="mt-2 whitespace-pre-wrap">{answer.text}</p>}{answer?.drawing && <img src={answer.drawing} alt="Ответ рисунком" className="mt-3 w-full border" />}{!answer?.selectedOption && !answer?.text && !answer?.drawing && <p className="text-slate-400">Нет ответа</p>}</div><div className="mt-4"><p className="mb-2 text-sm font-bold text-red-400">Красные пометки преподавателя</p><DrawingCanvas value={review.annotation} background={answer?.drawing} onChange={(annotation) => patch(task.id, { annotation })} color="#dc2626" height={170} /></div><textarea className="input mt-3" value={review.comment} onChange={(e) => patch(task.id, { comment: e.target.value })} placeholder="Комментарий ученику" /></article>; })}</div><aside className="h-fit rounded-2xl border border-ink-700 bg-ink-800/90 p-5 xl:sticky xl:top-5"><p className="text-xs font-bold uppercase tracking-widest text-ink-400">Проверка</p><h3 className="mt-2 text-lg font-bold text-white">{project.submission!.studentName}</h3><p className="mt-1 text-sm text-ink-400">{project.title}</p><div className="my-5 border-t border-ink-700" /><p className="text-sm text-ink-300">Итого</p><p className="text-4xl font-bold text-white">{total}</p><button onClick={finish} className="btn-primary mt-5 w-full">Завершить</button>{project.review && <a target="_blank" href={`/assignment/${project.slug}/report`} className="btn-ghost mt-3 w-full">Статистика / PDF</a>}<p className="mt-3 text-xs leading-5 text-ink-400">Диаграмма будет содержать по одному столбцу на каждый подтип проекта.</p></aside></div></section>;
+  async function finish() {
+    const res = await fetch(`/api/admin/assignments/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ review: { items, total, finishedAt: "" } }) });
+    const json = await res.json();
+    if (res.ok) { onDone(json.project); setFinished(true); }
+  }
+  return <section><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><button onClick={onBack} className="btn-ghost">← К пройденным тестам</button><div className="text-right"><b className="text-2xl text-white">{total} баллов</b><p className="text-xs text-ink-400">сумма обновляется автоматически</p></div></div>
+    {finished && <div className="mb-5 rounded-2xl border border-emerald-700/50 bg-emerald-900/20 p-5"><h3 className="font-bold text-white">Результаты подведены — материал готов к выдаче</h3><p className="mt-1 text-sm text-emerald-100/80">Скачайте обработанную работу в PDF или откройте вертикальную диаграмму со статистикой по подтипам.</p><div className="mt-4 flex flex-wrap gap-2"><a target="_blank" href={`/assignment/${project.slug}/report?print=1`} className="btn-primary">Скачать PDF для ученика</a><a target="_blank" href={`/assignment/${project.slug}/report#stats`} className="btn-ghost">Открыть диаграмму статистики</a></div></div>}
+    <div className="grid gap-5 xl:grid-cols-[1fr_260px]"><div className="space-y-5">{project.tasks.map((task, i) => { const answer = project.submission!.answers.find((x) => x.taskId === task.id); const review = items.find((x) => x.taskId === task.id)!; return <article key={task.id} className="rounded-2xl border border-ink-700 bg-ink-800/70 p-5"><div className="flex justify-between gap-4"><div><span className="text-xs font-bold text-brand-300">{task.categoryName || "Подтип"} · задание {i + 1}</span><h3 className="font-bold text-white">{task.title}</h3></div><label className="text-right text-xs text-ink-400">Баллы<input type="number" min="0" max={task.maxScore} value={review.score} onChange={(e) => patch(task.id, { score: Math.min(task.maxScore, Number(e.target.value)) })} className="input mt-1 w-24 text-center text-lg font-bold" /></label></div><p className="mt-4 whitespace-pre-wrap text-ink-200">{task.statement}</p>{task.imageUrl && <img src={task.imageUrl} alt={`Иллюстрация к заданию ${i + 1}`} className="mt-4 max-h-[520px] w-full rounded-lg border border-ink-600 bg-white object-contain" />}{task.needsAnalysis && <p className="mt-3 rounded-lg border border-amber-700/40 bg-amber-900/20 p-3 text-sm text-amber-200">Скрытый анализ: {task.analysisNote || "требуется дополнительная проверка"}</p>}<div className="mt-4 rounded-lg bg-white p-4 text-slate-900">{answer?.selectedOption && <p><b>Выбор:</b> {answer.selectedOption}</p>}{answer?.text && <p className="mt-2 whitespace-pre-wrap">{answer.text}</p>}{answer?.drawing && <img src={answer.drawing} alt="Ответ рисунком" className="mt-3 w-full border" />}{!answer?.selectedOption && !answer?.text && !answer?.drawing && <p className="text-slate-400">Нет ответа</p>}</div><div className="mt-4"><p className="mb-2 text-sm font-bold text-red-400">Красные пометки преподавателя</p><DrawingCanvas value={review.annotation} background={answer?.drawing} onChange={(annotation) => patch(task.id, { annotation })} color="#dc2626" height={170} /></div><textarea className="input mt-3" value={review.comment} onChange={(e) => patch(task.id, { comment: e.target.value })} placeholder="Комментарий ученику" /></article>; })}</div><aside className="h-fit rounded-2xl border border-ink-700 bg-ink-800/90 p-5 xl:sticky xl:top-5"><p className="text-xs font-bold uppercase tracking-widest text-ink-400">Проверка</p><h3 className="mt-2 text-lg font-bold text-white">{project.submission!.studentName}</h3><p className="mt-1 text-sm text-ink-400">{project.title}</p><p className="mt-1 text-xs text-ink-500">Пройден: {formatMoment(project.submission!.submittedAt)}</p><div className="my-5 border-t border-ink-700" /><p className="text-sm text-ink-300">Итого</p><p className="text-4xl font-bold text-white">{total} <span className="text-base font-medium text-ink-400">из {maxScoreOf(project)}</span></p><button onClick={finish} className="btn-primary mt-5 w-full">{finished ? "Обновить результат" : "Завершить"}</button>{finished && <><a target="_blank" href={`/assignment/${project.slug}/report?print=1`} className="btn-ghost mt-3 w-full">Скачать PDF</a><a target="_blank" href={`/assignment/${project.slug}/report#stats`} className="btn-ghost mt-2 w-full">Диаграмма</a></>}<p className="mt-3 text-xs leading-5 text-ink-400">Диаграмма содержит по одному столбцу на каждый подтип проекта.</p></aside></div></section>;
 }
