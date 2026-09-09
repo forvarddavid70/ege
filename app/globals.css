@@ -99,6 +99,22 @@ h3 {
   @apply inline-flex items-center rounded-full border border-brand-500/40 bg-brand-500/15 px-3 py-1 text-xs font-medium text-brand-200;
 }
 
+/* Ограничиваем анонсы в карточках блога: одинаковая сетка не ломается длинным текстом. */
+.blog-card-title,
+.blog-card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.blog-card-title {
+  -webkit-line-clamp: 2;
+}
+
+.blog-card-summary {
+  -webkit-line-clamp: 3;
+}
+
 /* Градиентный текст — фиолетовый → фуксия. Используется для акцентных
    заголовков, крупных цифр и бренда. */
 .text-gradient {

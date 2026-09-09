@@ -537,7 +537,7 @@ function NewsEditor({ initial }: { initial: NewsItem[] }) {
   }
   function add() {
     setItems((arr) => [
-      { id: newId(), title: "", date: new Date().toISOString().slice(0, 10), body: "" },
+      { id: newId(), title: "", date: new Date().toISOString().slice(0, 10), summary: "", body: "", imageUrl: "", youtubeUrl: "" },
       ...arr,
     ]);
   }
@@ -552,6 +552,9 @@ function NewsEditor({ initial }: { initial: NewsItem[] }) {
 
   return (
     <EditorShell title="Блог / новости" onAdd={add} addLabel="Добавить запись" onSave={onSave} state={state}>
+      <p className="rounded-xl border border-ink-700 bg-ink-900/40 p-4 text-sm text-ink-300">
+        Карточка открывает материал целиком. Добавьте обложку или ссылку на YouTube: для ролика сайт автоматически покажет превью и встроит плеер в полной записи.
+      </p>
       {items.map((n) => (
         <ItemCard key={n.id} onRemove={() => remove(n.id)}>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -565,7 +568,36 @@ function NewsEditor({ initial }: { initial: NewsItem[] }) {
             </div>
           </div>
           <div className="mt-3">
-            <label className="label">Текст</label>
+            <label className="label">Ссылка на видео YouTube (необязательно)</label>
+            <input
+              className="input"
+              value={n.youtubeUrl ?? ""}
+              onChange={(e) => update(n.id, { youtubeUrl: e.target.value })}
+              placeholder="https://www.youtube.com/watch?v=… или https://youtu.be/…"
+            />
+          </div>
+          <div className="mt-3 rounded-xl border border-ink-700 bg-ink-900/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <label className="label mb-0">Обложка записи (необязательно)</label>
+                <p className="mt-1 text-xs text-ink-400">PNG, JPEG или WebP до 5 МБ. Для YouTube приоритет у превью ролика.</p>
+              </div>
+              <ImageUploader label={n.imageUrl ? "Заменить картинку" : "Загрузить картинку"} onUploaded={(url) => update(n.id, { imageUrl: url })} />
+            </div>
+            {n.imageUrl && (
+              <div className="mt-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={n.imageUrl} alt="Предпросмотр обложки" className="max-h-64 w-full rounded-lg border border-ink-600 object-contain" />
+                <button type="button" onClick={() => update(n.id, { imageUrl: "" })} className="mt-2 text-sm font-medium text-rose-400 hover:text-rose-300">Удалить картинку</button>
+              </div>
+            )}
+          </div>
+          <div className="mt-3">
+            <label className="label">Короткая информация (видна на карточке)</label>
+            <textarea className="input min-h-[60px]" value={n.summary ?? ""} onChange={(e) => update(n.id, { summary: e.target.value })} />
+          </div>
+          <div className="mt-3">
+            <label className="label">Полный текст (открывается по клику)</label>
             <textarea className="input min-h-[90px]" value={n.body} onChange={(e) => update(n.id, { body: e.target.value })} />
           </div>
         </ItemCard>

@@ -2,7 +2,10 @@ export type NewsItem = {
   id: string;
   title: string;
   date: string; // ISO date (YYYY-MM-DD)
-  body: string;
+  summary?: string; // короткий анонс для карточки; если пусто, используется начало body
+  body: string; // полный текст записи
+  imageUrl?: string; // загруженная обложка или внешний URL
+  youtubeUrl?: string; // ссылка на ролик YouTube, необязательно
 };
 
 export type MaterialItem = {
