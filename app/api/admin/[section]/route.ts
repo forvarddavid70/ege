@@ -32,7 +32,10 @@ function normalize(
       id: str(r?.id) || makeId(),
       title: str(r?.title),
       date: str(r?.date) || new Date().toISOString().slice(0, 10),
+      summary: str(r?.summary),
       body: str(r?.body),
+      imageUrl: str(r?.imageUrl),
+      youtubeUrl: str(r?.youtubeUrl),
     }));
   }
   if (section === "materials") {
